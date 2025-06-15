@@ -53,7 +53,7 @@ cd sls-quotation
 
 ### 2. Install Depndencies
 ```
-npm install express pg cors dotenv
+npm install express pg cors dotenv multer
 ```
 
 ### 3. PostgreSQL Setup
