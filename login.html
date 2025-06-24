@@ -65,20 +65,25 @@
 <body>
   <div class="login-container">
     <h2>Login</h2>
-    <input type="text" id="username" placeholder="Username" required />
+    
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Username" required autofocus />
+      <div style="position: relative;">
+        <input type="password" id="password" placeholder="Password" required />
+        <input type="checkbox" id="showPassword" style="margin-top: 10px;" />
+        <label for="showPassword" style="font-size: 0.9em;">Show Password</label>
+      </div>
+      <button type="submit">Login</button>
+    </form>
 
-    <div style="position: relative;">
-      <input type="password" id="password" placeholder="Password" required />
-      <input type="checkbox" id="showPassword" style="margin-top: 10px;" />
-      <label for="showPassword" style="font-size: 0.9em;">Show Password</label>
-    </div>
-
-    <button onclick="handleLogin()">Login</button>
     <div class="error" id="error">Invalid username or password</div>
   </div>
 
   <script>
+    let isSubmitting = false;
     async function handleLogin() {
+       if (isSubmitting) return;
+        isSubmitting = true;
       const username = document.getElementById("username").value.trim();
       const password = document.getElementById("password").value.trim();
       const error = document.getElementById("error");
@@ -92,13 +97,13 @@
           body: JSON.stringify({ username, password })
         });
 
-        const data = await res.json(); // ✅ You forgot this line
+        const data = await res.json();
 
         if (res.ok) {
-          // ✅ Store user info in sessionStorage
+          //Store user info
           sessionStorage.setItem("salespersonId", data.id);
           sessionStorage.setItem("username", data.username);
-          window.location.href = "/"; // redirect after login
+          window.location.href = "/"; 
         } else {
           error.style.display = "block";
           error.textContent = data.error || "Invalid username or password";
@@ -108,13 +113,20 @@
         error.style.display = "block";
         error.textContent = "Server error. Try again later.";
       }
+      isSubmitting = false;
     }
 
-    // ✅ Show/hide password toggle
+    // Show/hide password
     document.getElementById("showPassword").addEventListener("change", function () {
       const pwd = document.getElementById("password");
       pwd.type = this.checked ? "text" : "password";
     });
+
+    document.getElementById("loginForm").addEventListener("submit", async function (e) {
+      e.preventDefault(); 
+      await handleLogin(); 
+    });
+
   </script>
 
 </body>
