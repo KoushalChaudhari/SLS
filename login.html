@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login | Shree Laser Systems</title>
+  <style>
+    body {
+      background: #f5f5f5;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .login-container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.15);
+      width: 320px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    button:hover {
+      background: #4f46e5;
+    }
+
+    .error {
+      color: red;
+      text-align: center;
+      display: none;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username" required />
+
+    <div style="position: relative;">
+      <input type="password" id="password" placeholder="Password" required />
+      <input type="checkbox" id="showPassword" style="margin-top: 10px;" />
+      <label for="showPassword" style="font-size: 0.9em;">Show Password</label>
+    </div>
+
+    <button onclick="handleLogin()">Login</button>
+    <div class="error" id="error">Invalid username or password</div>
+  </div>
+
+  <script>
+    async function handleLogin() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const error = document.getElementById("error");
+
+      try {
+        const res = await fetch("/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json(); // ✅ You forgot this line
+
+        if (res.ok) {
+          // ✅ Store user info in sessionStorage
+          sessionStorage.setItem("salespersonId", data.id);
+          sessionStorage.setItem("username", data.username);
+          window.location.href = "/"; // redirect after login
+        } else {
+          error.style.display = "block";
+          error.textContent = data.error || "Invalid username or password";
+        }
+      } catch (err) {
+        console.error("Login failed:", err);
+        error.style.display = "block";
+        error.textContent = "Server error. Try again later.";
+      }
+    }
+
+    // ✅ Show/hide password toggle
+    document.getElementById("showPassword").addEventListener("change", function () {
+      const pwd = document.getElementById("password");
+      pwd.type = this.checked ? "text" : "password";
+    });
+  </script>
+
+</body>
+</html>
