@@ -164,7 +164,7 @@ app.post("/api/quotations", async (req, res) => {
     const { clientName, companyName } = req.body;
     const dateStr = new Date().toISOString().split("T")[0].split("-").reverse().join("-");
 
-    const prefix = `SLS-${dateStr}-${salespersonId}`;
+    const prefix = `${dateStr}-${salespersonId}`;
 
     const result = await pool.query(
       `SELECT quotation_id FROM quotations WHERE salesperson_id = $1 AND quotation_id LIKE $2`,
