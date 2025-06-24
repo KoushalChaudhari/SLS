@@ -84,11 +84,11 @@ function authMiddleware(req, res, next) {
 
 // === Secure Pages ===
 app.get('/', authMiddleware, (req, res) => {
-  res.redirect('/sls_quotation.html'); //home page
+  res.redirect('/quotation.html'); //home page
 });
 
 app.get('/quotation', authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'sls_quotation.html'));
+  res.sendFile(path.join(__dirname, 'public', 'quotation.html'));
 });
 
 app.get('/data', authMiddleware, (req, res) => {
