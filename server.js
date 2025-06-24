@@ -22,17 +22,15 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Secure static content under /public
 app.use(express.static(path.join(__dirname,"public")));
 
-// Session middleware (AFTER static!)
 app.use(session({
-  secret: process.env.SessionSecret || 'default',      
+  secret: process.env.SessionSecret || 'default',     
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: false,               
-    maxAge: 1000 * 60 * 60       // 1 hour
+    maxAge: 1000 * 60 * 60  
   }
 }));
 
@@ -86,7 +84,7 @@ function authMiddleware(req, res, next) {
 
 // === Secure Pages ===
 app.get('/', authMiddleware, (req, res) => {
-  res.redirect('/sls_quotation.html'); // or your actual homepage
+  res.redirect('/sls_quotation.html'); //home page
 });
 
 app.get('/quotation', authMiddleware, (req, res) => {
@@ -104,7 +102,7 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// === Add Product with Optional Image ===
+// === Add Product ===
 app.post('/product', upload.single('new_image'), async (req, res) => {
   const { name, price, category } = req.body;
   const image = req.file;
@@ -168,7 +166,6 @@ app.post("/api/quotations", async (req, res) => {
 
     const prefix = `SLS-${dateStr}-${salespersonId}`;
 
-    // Get max index for this salesperson on this date
     const result = await pool.query(
       `SELECT quotation_id FROM quotations WHERE salesperson_id = $1 AND quotation_id LIKE $2`,
       [salespersonId, `${prefix}-%`]
@@ -200,7 +197,7 @@ app.post("/api/quotations", async (req, res) => {
   }
 });
 
-// === Serve Image by Product ID ===
+// === Image by Product ID ===
 app.get('/image/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).send('Invalid product ID.');
@@ -220,7 +217,7 @@ app.get('/image/:id', async (req, res) => {
   }
 });
 
-// === Fetch Product Info by ID ===
+// === Fetch Product Info ===
 app.get("/api/products/:id/image", async (req, res) => {
   const id = req.params.id;
   try {
@@ -266,7 +263,7 @@ app.get('/api/product-info', async (req, res) => {
   }
 });
 
-// === Search by Name ===
+// === Search ===
 app.get('/api/products/search', async (req, res) => {
   const { q } = req.query;
   try {
@@ -278,20 +275,6 @@ app.get('/api/products/search', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send('Search error.');
-  }
-});
-
-
-// === Price by Machine Name ===
-app.get('/api/price', async (req, res) => {
-  const { machine } = req.query;
-  try {
-    const result = await pool.query('SELECT price FROM machine WHERE name ILIKE $1 LIMIT 1', [`%${machine}%`]);
-    if (result.rows.length === 0) return res.status(404).send('Machine not found');
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Machine price lookup failed');
   }
 });
 
