@@ -27,7 +27,7 @@ app.use(express.static(path.join(__dirname,"public")));
 
 // Session middleware (AFTER static!)
 app.use(session({
-  secret: 'SLS_sujit9594986749',     
+  secret: process.env.SessionSecret || 'default',      
   resave: false,
   saveUninitialized: false,
   cookie: {
