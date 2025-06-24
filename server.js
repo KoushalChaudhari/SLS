@@ -1,4 +1,5 @@
 const express = require('express');
+const session = require('express-session');
 const cors = require('cors');
 const multer = require('multer');
 const { Pool } = require('pg');
@@ -12,25 +13,95 @@ const port = process.env.PORT || 3000;
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname)));
-
 // === PostgreSQL ===
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// === ROUTES ===
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Serve HTML UI
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '/sls_quotation.html'));
+// Secure static content under /public
+app.use(express.static(path.join(__dirname,"public")));
+
+// Session middleware (AFTER static!)
+app.use(session({
+  secret: 'SLS_sujit9594986749',     
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false,               
+    maxAge: 1000 * 60 * 60       // 1 hour
+  }
+}));
+
+// Login endpoint
+
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const result = await pool.query(
+      "SELECT id, username FROM sales_person WHERE username = $1 AND password = $2",
+      [username, password]
+    );
+    console.log("Login attempt:", username);
+
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      console.log('Login successful:', user.username);
+
+      // Set session
+      req.session.loggedIn = true;
+      req.session.user = user.username;
+      req.session.userId = user.id;
+
+      // Send user info to client
+      res.status(200).json({ id: user.id, username: user.username });
+    } else {
+      res.status(401).json({ error: "Invalid credentials" });
+    }
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-app.get('/data-entry', (req, res) => {
-  res.sendFile(path.join(__dirname, '/data_entry.html'));
+
+app.post("/logout", (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      return res.status(500).send("Logout failed");
+    }
+    res.clearCookie("connect.sid");
+    res.sendStatus(200);
+  });
+});
+
+function authMiddleware(req, res, next) {
+  if (req.session.user) return next();
+  res.redirect('/login.html');
+}
+
+// === Secure Pages ===
+app.get('/', authMiddleware, (req, res) => {
+  res.redirect('/sls_quotation.html'); // or your actual homepage
+});
+
+app.get('/quotation', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'sls_quotation.html'));
+});
+
+app.get('/data', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'data_entry.html'));
+});
+
+// Logout
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/login.html');
+  });
 });
 
 // === Add Product with Optional Image ===
@@ -83,6 +154,52 @@ app.post('/upload', upload.single('image'), async (req, res) => {
   }
 });
 
+// QUOTATIONS
+app.post("/api/quotations", async (req, res) => {
+  try {
+    const salespersonId = req.session.userId; 
+    console.log("Session salespersonId:", req.session.userId);
+    if (!salespersonId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { clientName, companyName } = req.body;
+    const dateStr = new Date().toISOString().split("T")[0].split("-").reverse().join("-");
+
+    const prefix = `SLS-${dateStr}-${salespersonId}`;
+
+    // Get max index for this salesperson on this date
+    const result = await pool.query(
+      `SELECT quotation_id FROM quotations WHERE salesperson_id = $1 AND quotation_id LIKE $2`,
+      [salespersonId, `${prefix}-%`]
+    );
+
+    const existingIds = result.rows.map(row => row.quotation_id);
+    let maxIndex = 0;
+
+    existingIds.forEach(id => {
+      const parts = id.split("-");
+      const idx = parseInt(parts[parts.length - 1]);
+      if (!isNaN(idx) && idx > maxIndex) maxIndex = idx;
+    });
+
+    const newIndex = String(maxIndex + 1).padStart(3, "0");
+    const quotationId = `${prefix}-${newIndex}`;
+
+    await pool.query(
+      `INSERT INTO quotations (quotation_id, client_name, company_name, salesperson_id)
+       VALUES ($1, $2, $3, $4)`,
+      [quotationId, clientName, companyName, salespersonId]
+    );
+
+    res.json({ quotationId });
+
+  } catch (err) {
+    console.error("Error inserting quotation:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // === Serve Image by Product ID ===
 app.get('/image/:id', async (req, res) => {
   const id = parseInt(req.params.id);
@@ -104,24 +221,31 @@ app.get('/image/:id', async (req, res) => {
 });
 
 // === Fetch Product Info by ID ===
-app.get('/product/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) return res.status(400).send('Invalid product ID.');
-
+app.get("/api/products/:id/image", async (req, res) => {
+  const id = req.params.id;
   try {
-    const result = await pool.query('SELECT * FROM product WHERE id = $1', [id]);
-    if (result.rows.length === 0) return res.status(404).send('Product not found.');
-    res.json(result.rows[0]);
+    const result = await pool.query(
+      "SELECT image_data, image_type FROM product_images WHERE product_id = $1",
+      [id]
+    );
+
+    if (result.rows.length === 0 || !result.rows[0].image_data) {
+      return res.status(404).send("Image not found");
+    }
+
+    const image = result.rows[0];
+    res.setHeader("Content-Type", image.image_type || "image/jpeg");
+    res.send(image.image_data);
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Error retrieving product info.');
+    console.error("Error fetching image:", err);
+    res.status(500).send("Server error");
   }
 });
 
 // === Fetch All Products ===
 app.get('/api/products/all', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM product');
+    const result = await pool.query('SELECT * FROM products');
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -133,7 +257,7 @@ app.get('/api/products/all', async (req, res) => {
 app.get('/api/product-info', async (req, res) => {
   const { desc } = req.query;
   try {
-    const result = await pool.query('SELECT price, quantity FROM product WHERE name ILIKE $1 LIMIT 1', [`%${desc}%`]);
+    const result = await pool.query('SELECT price FROM products WHERE name ILIKE $1 LIMIT 1', [`%${desc}%`]);
     if (result.rows.length === 0) return res.status(404).send('Not found');
     res.json(result.rows[0]);
   } catch (err) {
@@ -146,13 +270,17 @@ app.get('/api/product-info', async (req, res) => {
 app.get('/api/products/search', async (req, res) => {
   const { q } = req.query;
   try {
-    const result = await pool.query('SELECT id, name FROM product WHERE name ILIKE $1 LIMIT 10', [`%${q}%`]);
+    const result = await pool.query(
+      'SELECT id, name FROM products WHERE name ILIKE $1 LIMIT 10',
+      [`%${q}%`]
+    );
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).send('Search error.');
   }
 });
+
 
 // === Price by Machine Name ===
 app.get('/api/price', async (req, res) => {
@@ -168,6 +296,4 @@ app.get('/api/price', async (req, res) => {
 });
 
 // === Start Server ===
-app.listen(port, () => {
-  console.log(`🟢 Unified server running at http://localhost:${port}`);
-});
+app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
