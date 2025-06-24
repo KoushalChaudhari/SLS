@@ -30,6 +30,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+    try {
+      const res = await fetch("/logout", { method: "POST" });
+      if (res.ok) {
+        window.location.href = "/login.html";
+      } else {
+        alert("Logout failed.");
+      }
+    } catch (err) {
+      console.error("Logout error:", err);
+      alert("Logout error occurred.");
+    }
+  });
+
+
   // Product table
 
   function updateRowNumbers() {
@@ -109,6 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function recalculateTotals() {
   let grandTotal = 0;
   const imagePromises = [];
+  const imageDataList = [];
 
   // Calculate product table rows
   quotationTableBody.querySelectorAll("tr").forEach((row, i) => {
@@ -133,7 +149,7 @@ function recalculateTotals() {
     if (productId) {
       const collectImage = async () => {
         try {
-          const imageRes = await fetch(`/api/products/${productId}/image`);
+          const imageRes = await fetch(`/image/${productId}`);
           if (!imageRes.ok) throw new Error("Image not found");
           const blob = await imageRes.blob();
           const base64 = await new Promise(resolve => {
@@ -203,7 +219,30 @@ quotationTableBody?.addEventListener("input", async (e) => {
           datalist.appendChild(option);
         });
 
-        target.dataset.selectedId = results.length === 1 ? results[0].id : "";
+        if (results.length === 1) {
+          const selectedId = results[0].id;
+          target.dataset.selectedId = selectedId;
+
+          // Immediately fetch and store base64 image
+          try {
+            const imageRes = await fetch(`/image/${selectedId}`);
+            if (imageRes.ok) {
+              const blob = await imageRes.blob();
+              const base64 = await new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+              });
+              target.dataset.imageBase64 = base64;
+            }
+          } catch (err) {
+            console.warn("Image fetch error during input:", err);
+          }
+        } else {
+          target.dataset.selectedId = "";
+          target.dataset.imageBase64 = "";
+        }
+
 
         // 🛠 Fetch product info
         const productInfo = await fetch(`/api/product-info?desc=${encodeURIComponent(description)}`);
@@ -247,7 +286,7 @@ quotationTableBody?.addEventListener("change", async (e) => {
 
     if (productId) {
       try {
-        const imageRes = await fetch(`/api/products/${productId}/image`);
+        const imageRes = await fetch(`/image/${productId}`);
         if (!imageRes.ok) throw new Error("Image not found");
 
         const blob = await imageRes.blob();
@@ -339,10 +378,8 @@ saveBtn?.addEventListener("click", async () => {
   const fullName = document.getElementById("fullName")?.value || "";
   const companyName = document.getElementById("companyName")?.value || "";
   const issueDate = document.getElementById("issueDate")?.value || "";
-  const quotationId = document.getElementById("quotationId")?.value || `${dateStr}`;
   const amountDue = document.getElementById("amountDue")?.value || "";
-  const currency = document.getElementById("currency")?.value || "";
-  const fileName = `SLS_${quotationId || "unknown"}.pdf`;
+  //const currency = document.getElementById("currency")?.value || "";
   const clientPhone = document.getElementById("phone")?.value || "";
   const clientEmail = document.getElementById("email")?.value || "";
   const clientAddress = document.getElementById("street")?.value || "";
@@ -350,7 +387,25 @@ saveBtn?.addEventListener("click", async () => {
   const clientPincode = document.getElementById("pincode")?.value || "";
   const clientState = document.getElementById("state")?.value || "";
   const clientGST = document.getElementById("gst")?.value || "";
-  
+
+  // First save quotation and get quotationId
+  const saveData = {
+    clientName: fullName,
+    companyName: companyName
+  };
+  const res = await fetch('/api/quotations', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(saveData)
+  });
+
+  const result = await res.json();
+  const quotationId = result.quotationId;
+
+  // Now safely construct file name using the received quotationId
+  const fileName = `SLS_${quotationId}.pdf`;
+
+  // Client details for PDF
   const clientDetails = [
     clientAddress,
     `${clientCity}, ${clientState} - ${clientPincode}`,
@@ -358,6 +413,7 @@ saveBtn?.addEventListener("click", async () => {
     `Email: ${clientEmail}`,
     `GSTIN: ${clientGST}`
   ];
+
 
   const customTableBody = [];
   document.querySelectorAll("#customNoteTableBody tr").forEach((row, i) => {
@@ -370,6 +426,34 @@ saveBtn?.addEventListener("click", async () => {
 
     customTableBody.push([no, desc, qty, price, gst, total]);
   });
+
+  const salespersonId = sessionStorage.getItem('salespersonId'); 
+  if (!quotationId) {
+    try {
+      const res = await fetch('/api/quotations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: fullName,
+          companyName: companyName,
+          salespersonId
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(`Failed to save quotation: ${data.error}`);
+        return;
+      }
+
+      const data = await res.json();
+      quotationId = data.quotationId; // update the local value if not already set
+    } catch (err) {
+      alert('Error saving quotation to database.');
+      return;
+    }
+  }
+
 
   generateHeaderSection(doc, fullName, companyName, quotationId, issueDate, amountDue, clientDetails);
   const usablePageHeight = doc.internal.pageSize.height - 20;
@@ -466,7 +550,7 @@ saveBtn?.addEventListener("click", async () => {
     nextY += 6;
 
     const imgHeight = 60;
-    const imgWidth = 60;
+    const imgWidth = 80;
     const spacingY = 20;
     const spacingX = 20;
     const marginLeft = 14;
@@ -524,7 +608,7 @@ saveBtn?.addEventListener("click", async () => {
       overflow: 'linebreak',
     },
     headStyles: {
-      fillColor: [198, 187, 26],
+      fillColor: [0, 153, 76],
       textColor: [255, 255, 255],
       fontSize: 11,
       fontStyle: 'bold',
