@@ -7,21 +7,11 @@ document.addEventListener("DOMContentLoaded", () => {
   //Date
   const today = new Date();
   const dd = String(today.getDate()).padStart(2, '0');
-  const mm = String(today.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+  const mm = String(today.getMonth() + 1).padStart(2, '0'); 
   const yyyy = today.getFullYear();
   const dateStr = `${dd}-${mm}-${yyyy}`;
 
   document.getElementById("issueDate").valueAsDate = today;
-
-  //search states
-  /*const stateSelect = document.getElementById("state");
-  if (stateSelect) {
-    new Choices(stateSelect, {
-      searchEnabled: true,
-      itemSelectText: '',
-      shouldSort: true
-    });
-  }*/
 
   function formatPrice(amount) {
     return parseFloat(amount || 0).toLocaleString('en-IN', {
@@ -143,7 +133,7 @@ function recalculateTotals() {
       maximumFractionDigits: 2,
     });
 
-    // Optional: collect image
+    // collect image
     const descInput = row.querySelector(".desc-input");
     const productId = descInput?.dataset.selectedId;
     if (productId) {
@@ -166,7 +156,7 @@ function recalculateTotals() {
     }
   });
 
-  // Calculate totals for customisation note table
+  // Calculate custom table cost
   const customTbody = document.getElementById("customNoteTableBody");
   if (customTbody) {
     customTbody.querySelectorAll("tr").forEach((row) => {
@@ -223,7 +213,7 @@ quotationTableBody?.addEventListener("input", async (e) => {
           const selectedId = results[0].id;
           target.dataset.selectedId = selectedId;
 
-          // Immediately fetch and store base64 image
+          //fetch and store base64 image
           try {
             const imageRes = await fetch(`/image/${selectedId}`);
             if (imageRes.ok) {
@@ -244,7 +234,7 @@ quotationTableBody?.addEventListener("input", async (e) => {
         }
 
 
-        // 🛠 Fetch product info
+        //Fetch product info
         const productInfo = await fetch(`/api/product-info?desc=${encodeURIComponent(description)}`);
         if (productInfo.ok) {
           const data = await productInfo.json();
@@ -252,7 +242,7 @@ quotationTableBody?.addEventListener("input", async (e) => {
           row.cells[4].querySelector("input").value = data.price || 0;
         }
 
-        // 🛠 Optionally fetch price from machine table as override
+        //fetch price from machine table
         const machineName = description;
         const machineRes = await fetch(`/api/price?machine=${encodeURIComponent(machineName)}`);
         if (machineRes.ok) {
@@ -293,7 +283,7 @@ quotationTableBody?.addEventListener("change", async (e) => {
         const reader = new FileReader();
 
         reader.onload = () => {
-          // ✅ Save base64 into dataset instead of trying to simulate file input
+          // Save base64 into dataset 
           input.dataset.imageBase64 = reader.result;
         };
 
@@ -364,7 +354,6 @@ function generateHeaderSection(doc, clientName, companyName, quotationId, issueD
   // Title line
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  //doc.text(`Quotation For: Inquiry for ${machineSummary()}`, 14, 71);
   doc.setFont("helvetica", "normal");
   doc.text(`Dear ${clientName},`, 14, 95);
 }
@@ -379,7 +368,6 @@ saveBtn?.addEventListener("click", async () => {
   const companyName = document.getElementById("companyName")?.value || "";
   const issueDate = document.getElementById("issueDate")?.value || "";
   const amountDue = document.getElementById("amountDue")?.value || "";
-  //const currency = document.getElementById("currency")?.value || "";
   const clientPhone = document.getElementById("phone")?.value || "";
   const clientEmail = document.getElementById("email")?.value || "";
   const clientAddress = document.getElementById("street")?.value || "";
@@ -388,7 +376,7 @@ saveBtn?.addEventListener("click", async () => {
   const clientState = document.getElementById("state")?.value || "";
   const clientGST = document.getElementById("gst")?.value || "";
 
-  // First save quotation and get quotationId
+  // save quotation and get quotationId
   const saveData = {
     clientName: fullName,
     companyName: companyName
@@ -402,7 +390,6 @@ saveBtn?.addEventListener("click", async () => {
   const result = await res.json();
   const quotationId = result.quotationId;
 
-  // Now safely construct file name using the received quotationId
   const fileName = `SLS_${quotationId}.pdf`;
 
   // Client details for PDF
@@ -447,7 +434,7 @@ saveBtn?.addEventListener("click", async () => {
       }
 
       const data = await res.json();
-      quotationId = data.quotationId; // update the local value if not already set
+      quotationId = data.quotationId;
     } catch (err) {
       alert('Error saving quotation to database.');
       return;
@@ -498,7 +485,6 @@ saveBtn?.addEventListener("click", async () => {
     }
   });
 
-  // Wait for all missing images to be fetched
   if (fetchImagePromises.length > 0) {
     await Promise.all(fetchImagePromises);
   }
@@ -559,7 +545,6 @@ saveBtn?.addEventListener("click", async () => {
     let rowY = marginTop;
 
     imageDataList.forEach((img, idx) => {
-      // Calculate X position for 2 images per row
       const x = marginLeft + col * (imgWidth + spacingX);
       if (rowY + imgHeight + 10 > usablePageHeight) {
         doc.addPage();
@@ -567,7 +552,6 @@ saveBtn?.addEventListener("click", async () => {
       }
       doc.addImage(img.base64, 'JPEG', x, rowY, imgWidth, imgHeight);
 
-      // Caption below image, product name
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(img.name, x + imgWidth / 2, rowY + imgHeight + 7, { align: "center" });
@@ -579,7 +563,6 @@ saveBtn?.addEventListener("click", async () => {
       }
     });
 
-    // If odd number, move Y down for next section
     if (col === 1) {
       nextY = rowY + imgHeight + spacingY;
     } else {
@@ -737,53 +720,6 @@ saveBtn?.addEventListener("click", async () => {
 
   doc.save(fileName);
 });
-
-  // Category > Machine > Price
-  const categorySelect = document.getElementById("category");
-  const machineSelect = document.getElementById("machine");
-  const priceInput = document.getElementById("price");
-
-  if (categorySelect && machineSelect && priceInput) {
-    fetch('/api/categories')
-      .then(res => res.json())
-      .then(categories => {
-        categories.forEach(cat => {
-          const option = document.createElement("option");
-          option.value = cat;
-          option.textContent = cat;
-          categorySelect.appendChild(option);
-        });
-      });
-
-    categorySelect.addEventListener("change", () => {
-      const category = categorySelect.value;
-      machineSelect.innerHTML = '<option value="">Select machine</option>';
-      machineSelect.disabled = true;
-
-      if (category) {
-        fetch(`/api/machines?category=${encodeURIComponent(category)}`)
-          .then(res => res.json())
-          .then(machines => {
-            machines.forEach(machine => {
-              const option = document.createElement("option");
-              option.value = machine;
-              option.textContent = machine;
-              machineSelect.appendChild(option);
-            });
-            machineSelect.disabled = false;
-          });
-      }
-    });
-
-    machineSelect.addEventListener("change", () => {
-      const selectedMachine = machineSelect.value;
-      fetch(`/api/price?machine=${encodeURIComponent(selectedMachine)}`)
-        .then(res => res.json())
-        .then(data => {
-          priceInput.value = data.price || "0.00";
-        });
-    });
-  }
 
 // Theme
 
