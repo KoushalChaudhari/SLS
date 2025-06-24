@@ -153,11 +153,10 @@ productIdInput.addEventListener('input', () => {
     fetchProductInfo(productIdInput.value);
   }
 
-  // Theme toggle logic
+  // Theme toggle
   const themeBtn = document.getElementById('themeToggleBtn');
   const body = document.body;
 
-  // Load theme from localStorage if available
   if (localStorage.getItem('theme') === 'dark') {
     body.classList.add('dark-mode');
     themeBtn.textContent = '☀️ Light Mode';
@@ -167,7 +166,6 @@ productIdInput.addEventListener('input', () => {
     body.classList.toggle('dark-mode');
     const isDark = body.classList.contains('dark-mode');
     themeBtn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
-    // Save preference
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
   });
 });
