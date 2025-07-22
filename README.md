@@ -1,4 +1,4 @@
-# 🧾 SLS Quotation Generator
+# 🧾 Quotation Generator
 
 A fullstack web application for creating, managing, and exporting customer quotations for Shree Laser Systems. This app allows dynamic product listing, live search with PostgreSQL integration, product image inclusion, and generates detailed PDF quotations with custom notes.
 
