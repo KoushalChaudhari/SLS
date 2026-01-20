@@ -1,6 +1,6 @@
 # 🧾 Quotation Generator
 
-A fullstack web application for creating, managing, and exporting customer quotations for your oprganisation. This app allows dynamic product listing, live search with PostgreSQL integration, product image inclusion, and generates detailed PDF quotations with custom notes.
+A fullstack web application for creating, managing, and exporting customer quotations for your organisation. This app allows dynamic product listing, live search with PostgreSQL integration, product image inclusion, and generates detailed PDF quotations with custom notes.
 
 ---
 
