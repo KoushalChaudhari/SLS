@@ -51,7 +51,7 @@ project/
 
 ### 1. Clone the Repository
 ```
-git clone https://github.com/<your-username>/sls-quotation.git
+git clone https://github.com/KoushalChaudhari/sls-quotation.git
 cd sls-quotation
 ```
 
